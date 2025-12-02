@@ -2,6 +2,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from telegram.request import HTTPXRequest
 import google.generativeai as genai
+import os
 
 # --- 1. PASTE YOUR KEYS HERE ---
 TELEGRAM_TOKEN = os.environ.get("8294266435:AAElxkl1zD4Sr7q1qwTG6JCZUYnAZCq0ha8")
@@ -69,4 +70,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
