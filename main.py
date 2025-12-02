@@ -19,11 +19,18 @@ if not TELEGRAM_TOKEN or not GEMINI_API_KEY:
 genai.configure(api_key=GEMINI_API_KEY)
 
 # Try using the stable Flash model, fall back to Pro if needed
+# NEW CODE (Fix)
 try:
-    model = genai.GenerativeModel('gemini-1.5-flash')
-except Exception as e:
-    print(f"Model Error: {e}. Defaulting to Pro.")
-    model = genai.GenerativeModel('gemini-pro')
+    # Try the specific versioned name (often fixes the 404)
+    model = genai.GenerativeModel('gemini-1.5-flash-001')
+except Exception:
+    try:
+        # If that fails, try the standard Pro model (Very reliable)
+        print("Flash model failed, switching to Pro...")
+        model = genai.GenerativeModel('gemini-pro')
+    except Exception as e:
+        print(f"CRITICAL ERROR: Could not load ANY model. Check API Key. Details: {e}")
+        # If this happens, your API Key might be broken.
 
 # --- 3. BOT FUNCTIONS ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -73,3 +80,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
