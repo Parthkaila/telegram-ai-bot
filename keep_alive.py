@@ -8,7 +8,7 @@ def home():
     return "I am alive!"
 
 def run():
-    # Important: host must be 0.0.0.0 to work on cloud
+    # Important: host must be 0.0.0.0 for Cloud platforms
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
