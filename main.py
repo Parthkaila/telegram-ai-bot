@@ -5,7 +5,7 @@ import google.generativeai as genai
 
 # --- 1. PASTE YOUR KEYS HERE ---
 TELEGRAM_TOKEN = os.environ.get("8294266435:AAElxkl1zD4Sr7q1qwTG6JCZUYnAZCq0ha8")
-GEMINI_API_KEY = os.environ.get("AIzaSyA8siylIYyMACLcci0ydQi3Rmrxbd52IXk")
+GEMINI_API_KEY = os.environ.get("AIzaSyAc9IE3eQTXJ8fgzveizLoG5ptjSj3xFXk")
 
 # --- 2. CONFIGURE AI (Using the Standard Free Model) ---
 genai.configure(api_key=GEMINI_API_KEY)
@@ -69,3 +69,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
