@@ -1,74 +1,75 @@
+import os
+import google.generativeai as genai
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from telegram.request import HTTPXRequest
-import google.generativeai as genai
-import os
+from keep_alive import keep_alive  # Imports the web server from File 2
 
-# --- 1. PASTE YOUR KEYS HERE ---
-TELEGRAM_TOKEN = os.environ.get("8294266435:AAElxkl1zD4Sr7q1qwTG6JCZUYnAZCq0ha8")
-GEMINI_API_KEY = os.environ.get("AIzaSyAc9IE3eQTXJ8fgzveizLoG5ptjSj3xFXk")
+# --- 1. SECURELY LOAD KEYS ---
+# We use the VARIABLE NAMES here, not the actual keys.
+# Render will inject the actual keys safely.
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# --- 2. CONFIGURE AI (Using the Standard Free Model) ---
+# Safety Check: If keys are missing, stop immediately to warn the user
+if not TELEGRAM_TOKEN or not GEMINI_API_KEY:
+    raise ValueError("CRITICAL ERROR: Keys not found! Go to Render Dashboard -> Environment and add 'TELEGRAM_TOKEN' and 'GEMINI_API_KEY'.")
+
+# --- 2. CONFIGURE AI ---
 genai.configure(api_key=GEMINI_API_KEY)
 
-# We are FORCING 'gemini-1.5-flash' because it has a generous free tier.
-# If this gives an error, you must update your library (see below).
+# Try using the stable Flash model, fall back to Pro if needed
 try:
-    model = genai.GenerativeModel('gemini-2.5-flash')
-# or the alias:
-# model = genai.GenerativeModel('gemini-flash-latest')
-
+    model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
-    print("Error loading model. Defaulting to legacy model.")
+    print(f"Model Error: {e}. Defaulting to Pro.")
     model = genai.GenerativeModel('gemini-pro')
 
 # --- 3. BOT FUNCTIONS ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hello! I am ready. I am using the standard Flash model.")
+    await update.message.reply_text("Hello! I am online 24/7. Ask me anything.")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
+    chat_id = update.effective_chat.id
     
-    # Show "typing..." status
-    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action='typing')
+    # Show "typing..." status so user knows bot is thinking
+    await context.bot.send_chat_action(chat_id=chat_id, action='typing')
 
     try:
-        # Send text to Google AI
+        # Generate response from Google AI
         response = model.generate_content(user_text)
         ai_reply = response.text
 
-        # --- FIX FOR LONG MESSAGES ---
-        # Telegram limit is 4096 chars. We split the message if it's too big.
+        # --- HANDLE LONG MESSAGES ---
+        # Telegram has a 4096 character limit. We split long replies.
         if len(ai_reply) > 4000:
-            # Split the text into chunks of 4000 characters
             for x in range(0, len(ai_reply), 4000):
                 await update.message.reply_text(ai_reply[x:x+4000])
         else:
-            # If it's short enough, just send it
             await update.message.reply_text(ai_reply)
             
     except Exception as e:
-        print(f"AI Error: {e}")
-        # If the specific error is 'Message is too long', we catch it here just in case
-        if "Message is too long" in str(e):
-             await update.message.reply_text("The answer was too long for Telegram to handle!")
-        else:
-             await update.message.reply_text("Sorry, I encountered an error.")
+        print(f"Error: {e}")
+        await update.message.reply_text("I'm sorry, I'm having trouble processing that right now.")
 
 def main():
-    # Connection settings
-    trequest = HTTPXRequest(connection_pool_size=8, connect_timeout=20.0, read_timeout=20.0)
+    # 1. Start the Background Web Server (Required for Render)
+    keep_alive()
 
+    # 2. Configure Telegram Connection
+    trequest = HTTPXRequest(connection_pool_size=8, connect_timeout=20.0, read_timeout=20.0)
+    
+    # 3. Build the App
     app = Application.builder().token(TELEGRAM_TOKEN).request(trequest).build()
 
+    # 4. Add Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("Bot is running with 'gemini-1.5-flash'...")
-    print("Press Ctrl+C to stop.")
+    # 5. Run
+    print("Bot is running... Press Ctrl+C to stop.")
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-
-
