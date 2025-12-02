@@ -6,35 +6,34 @@ from telegram.request import HTTPXRequest
 from keep_alive import keep_alive  # Imports the web server from File 2
 
 # --- 1. SECURELY LOAD KEYS ---
-# We use the VARIABLE NAMES here, not the actual keys.
-# Render will inject the actual keys safely.
+# We use the VARIABLE NAMES here. Render injects the actual keys safely.
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Safety Check: If keys are missing, stop immediately to warn the user
+# Safety Check: If keys are missing, stop immediately
 if not TELEGRAM_TOKEN or not GEMINI_API_KEY:
     raise ValueError("CRITICAL ERROR: Keys not found! Go to Render Dashboard -> Environment and add 'TELEGRAM_TOKEN' and 'GEMINI_API_KEY'.")
 
 # --- 2. CONFIGURE AI ---
 genai.configure(api_key=GEMINI_API_KEY)
 
-# Try using the stable Flash model, fall back to Pro if needed
-# NEW CODE (Fix)
+# UPDATED: We use 2.5 Flash because your list confirmed you have access to it.
 try:
-    # Try the specific versioned name (often fixes the 404)
-    model = genai.GenerativeModel('gemini-1.5-flash-001')
-except Exception:
+    print("Attempting to load gemini-2.5-flash...")
+    model = genai.GenerativeModel('gemini-2.5-flash')
+except Exception as first_error:
     try:
-        # If that fails, try the standard Pro model (Very reliable)
-        print("Flash model failed, switching to Pro...")
+        # Fallback to 2.0 Flash if 2.5 isn't ready
+        print(f"2.5 Flash failed ({first_error}). Trying gemini-2.0-flash...")
+        model = genai.GenerativeModel('gemini-2.0-flash')
+    except Exception as second_error:
+        # Final fallback to standard Pro
+        print(f"2.0 Flash failed ({second_error}). Defaulting to gemini-pro.")
         model = genai.GenerativeModel('gemini-pro')
-    except Exception as e:
-        print(f"CRITICAL ERROR: Could not load ANY model. Check API Key. Details: {e}")
-        # If this happens, your API Key might be broken.
 
 # --- 3. BOT FUNCTIONS ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hello! I am online 24/7. Ask me anything.")
+    await update.message.reply_text("Hello! I am online 24/7 using Gemini 2.5 Flash.")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
@@ -58,7 +57,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
     except Exception as e:
         print(f"Error: {e}")
-        await update.message.reply_text("I'm sorry, I'm having trouble processing that right now.")
+        # If the content was blocked (Safety), tell the user
+        if "blocked" in str(e).lower():
+            await update.message.reply_text("I cannot answer that due to safety guidelines.")
+        else:
+            await update.message.reply_text("I'm sorry, I'm having trouble processing that right now.")
 
 def main():
     # 1. Start the Background Web Server (Required for Render)
@@ -80,4 +83,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
