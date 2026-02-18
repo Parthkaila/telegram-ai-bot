@@ -4,7 +4,7 @@ from flask import Flask, render_template_string, request, jsonify
 from google import genai
 
 # --- 1. SETUP AI ---
-GEMINI_API_KEY = "GEMINI_API_KEY"
+GEMINI_API_KEY = "AIzaSyBUR86K7XjbwxHFyZwkHZWIYKoJFhaaMJA"
 
 # The new SDK uses a Client object instead of configure()
 client = None
@@ -120,4 +120,5 @@ def chat():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
