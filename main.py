@@ -4,7 +4,7 @@ import google.generativeai as genai
 
 # --- 1. SETUP AI ---
 # I have inserted your key here.
-GEMINI_API_KEY = "AIzaSyBUR86K7XjbwxHFyZwkHZWIYKoJFhaaMJA"
+GEMINI_API_KEY = "GEMINI_API_KEY"
 
 # Configure the API
 if GEMINI_API_KEY:
@@ -132,3 +132,4 @@ if __name__ == '__main__':
     # This block allows it to run on Render or Locally
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
