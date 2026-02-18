@@ -1,21 +1,19 @@
 import os
 from flask import Flask, render_template_string, request, jsonify
-import google.generativeai as genai
+# IMPORTANT: This is the new import for the modern SDK
+from google import genai
 
 # --- 1. SETUP AI ---
-# I have inserted your key here.
 GEMINI_API_KEY = "GEMINI_API_KEY"
 
-# Configure the API
+# The new SDK uses a Client object instead of configure()
+client = None
 if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
     try:
-        # We try to use the faster 'flash' model first
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        print("AI Client initialized successfully.")
     except Exception as e:
-        print(f"Error loading Flash model: {e}")
-        # Fallback to Pro if Flash fails
-        model = genai.GenerativeModel('gemini-pro')
+        print(f"Error setting up client: {e}")
 else:
     print("CRITICAL ERROR: API Key is missing.")
 
@@ -61,11 +59,9 @@ HTML_CODE = """
         let text = input.value.trim();
         if (!text) return;
 
-        // Add user message
         chatBox.innerHTML += `<div class="message user">${text}</div>`;
         input.value = "";
         
-        // Add loading indicator
         let loadingId = "loading-" + Date.now();
         chatBox.innerHTML += `<div class="message bot" id="${loadingId}">...</div>`;
         chatBox.scrollTop = chatBox.scrollHeight;
@@ -78,8 +74,6 @@ HTML_CODE = """
             });
             
             let data = await response.json();
-            
-            // Replace loading with actual response
             document.getElementById(loadingId).innerText = data.reply;
         } catch (error) {
             document.getElementById(loadingId).innerText = "Error: Could not reach server.";
@@ -100,36 +94,29 @@ def home():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    # 1. Check for User Message
     user_data = request.json
     if not user_data or "message" not in user_data:
         return jsonify({"reply": "Error: No message received."})
     
     user_message = user_data["message"]
 
-    # 2. Check for API Key
-    if not GEMINI_API_KEY:
-        return jsonify({"reply": "Error: API Key is missing in the code."})
+    if not client:
+        return jsonify({"reply": "Error: API Client is not initialized."})
 
-    # 3. Try to Generate Content
     try:
-        response = model.generate_content(user_message)
-        
-        # Check if response was blocked by safety filters
-        if response.prompt_feedback and response.prompt_feedback.block_reason:
-            return jsonify({"reply": "Error: Response blocked by safety filters."})
-            
+        # The new method to generate content using the standard 2.5 Flash model
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=user_message
+        )
         return jsonify({"reply": response.text})
         
     except Exception as e:
-        # This will print the EXACT error to your command prompt so you can debug
         print(f"------------ ERROR ------------")
         print(e)
         print(f"-------------------------------")
         return jsonify({"reply": f"Error: {str(e)}"})
 
 if __name__ == '__main__':
-    # This block allows it to run on Render or Locally
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
