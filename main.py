@@ -3,19 +3,26 @@ from flask import Flask, render_template_string, request, jsonify
 import google.generativeai as genai
 
 # --- 1. SETUP AI ---
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+# I have inserted your key here.
+GEMINI_API_KEY = "AIzaSyBUR86K7XjbwxHFyZwkHZWIYKoJFhaaMJA"
 
+# Configure the API
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
     try:
+        # We try to use the faster 'flash' model first
         model = genai.GenerativeModel('gemini-1.5-flash')
-    except:
+    except Exception as e:
+        print(f"Error loading Flash model: {e}")
+        # Fallback to Pro if Flash fails
         model = genai.GenerativeModel('gemini-pro')
+else:
+    print("CRITICAL ERROR: API Key is missing.")
 
 # --- 2. SETUP FLASK ---
 app = Flask(__name__)
 
-# HTML Code (Same as before)
+# --- 3. HTML INTERFACE ---
 HTML_CODE = """
 <!DOCTYPE html>
 <html>
@@ -33,11 +40,12 @@ HTML_CODE = """
         .input-area { display: flex; padding: 10px; border-top: 1px solid #ddd; }
         input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
         button { margin-left: 10px; padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 20px; cursor: pointer; }
+        button:hover { background: #0056b3; }
     </style>
 </head>
 <body>
 <div class="chat-container">
-    <div class="header">🤖 Gemini AI</div>
+    <div class="header">🤖 Pathu's AI</div>
     <div class="messages" id="chat-box">
         <div class="message bot">Hello! I am ready to chat.</div>
     </div>
@@ -53,22 +61,33 @@ HTML_CODE = """
         let text = input.value.trim();
         if (!text) return;
 
+        // Add user message
         chatBox.innerHTML += `<div class="message user">${text}</div>`;
         input.value = "";
         
+        // Add loading indicator
         let loadingId = "loading-" + Date.now();
         chatBox.innerHTML += `<div class="message bot" id="${loadingId}">...</div>`;
         chatBox.scrollTop = chatBox.scrollHeight;
 
-        let response = await fetch("/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: text })
-        });
-        let data = await response.json();
-        document.getElementById(loadingId).innerText = data.reply;
+        try {
+            let response = await fetch("/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: text })
+            });
+            
+            let data = await response.json();
+            
+            // Replace loading with actual response
+            document.getElementById(loadingId).innerText = data.reply;
+        } catch (error) {
+            document.getElementById(loadingId).innerText = "Error: Could not reach server.";
+        }
+        
         chatBox.scrollTop = chatBox.scrollHeight;
     }
+    
     function handleEnter(event) { if (event.key === "Enter") sendMessage(); }
 </script>
 </body>
@@ -81,17 +100,35 @@ def home():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    user_message = request.json.get("message")
+    # 1. Check for User Message
+    user_data = request.json
+    if not user_data or "message" not in user_data:
+        return jsonify({"reply": "Error: No message received."})
+    
+    user_message = user_data["message"]
+
+    # 2. Check for API Key
     if not GEMINI_API_KEY:
-        return jsonify({"reply": "Error: API Key missing."})
+        return jsonify({"reply": "Error: API Key is missing in the code."})
+
+    # 3. Try to Generate Content
     try:
         response = model.generate_content(user_message)
+        
+        # Check if response was blocked by safety filters
+        if response.prompt_feedback and response.prompt_feedback.block_reason:
+            return jsonify({"reply": "Error: Response blocked by safety filters."})
+            
         return jsonify({"reply": response.text})
-    except:
-        return jsonify({"reply": "Error connecting to AI."})
+        
+    except Exception as e:
+        # This will print the EXACT error to your command prompt so you can debug
+        print(f"------------ ERROR ------------")
+        print(e)
+        print(f"-------------------------------")
+        return jsonify({"reply": f"Error: {str(e)}"})
 
 if __name__ == '__main__':
-    # RENDER REQUIRES THIS FIX:
-    # It sets the port automatically using os.environ.get("PORT")
+    # This block allows it to run on Render or Locally
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
