@@ -3,7 +3,8 @@ from flask import Flask, render_template_string, request, jsonify
 from google import genai
 
 # --- 1. SETUP AI ---
-GEMINI_API_KEY = "GEMINI_API_KEY" # Put your active key here
+# This safely pulls the key from Render's environment variables
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 client = None
 if GEMINI_API_KEY:
@@ -259,6 +260,7 @@ def chat():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
 
